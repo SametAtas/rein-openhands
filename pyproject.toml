@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rein-openhands"
+dynamic = ["version"]
+description = "Deterministic, no-LLM SecurityAnalyzer for OpenHands, backed by the rein engine."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Abdulsamet Atas" }]
+keywords = ["openhands", "rein", "ai", "agents", "security", "guardrails"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Security",
+]
+dependencies = [
+    "rein-engine>=0.1.1",
+    "openhands-sdk>=1.17",
+]
+
+[project.urls]
+Homepage = "https://github.com/SametAtas/rein-openhands"
+Repository = "https://github.com/SametAtas/rein-openhands"
+Issues = "https://github.com/SametAtas/rein-openhands/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.version]
+path = "src/rein_openhands/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rein_openhands"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
