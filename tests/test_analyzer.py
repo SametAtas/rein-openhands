@@ -59,3 +59,21 @@ def test_deterministic():
     event = _event("app.py", "import os\nos.system(cmd)\n")
     results = {analyzer.security_risk(event) for _ in range(20)}
     assert results == {SecurityRisk.HIGH}
+
+
+def test_unparseable_python_fails_closed_high():
+    # An unparseable .py means rein's AST security checks did not run, so a
+    # dangerous call could slip through. Must be HIGH, not the syntax error's MEDIUM.
+    risk = ReinSecurityAnalyzer().security_risk(
+        _event("app.py", "import os\nos.system(cmd\n")  # missing paren
+    )
+    assert risk == SecurityRisk.HIGH
+
+
+def test_non_python_unparseable_not_forced_high():
+    # A non-.py action is left to its normal verdict (and the shell analyzer);
+    # fail-closed is scoped to Python so commands are not blanket-flagged.
+    risk = ReinSecurityAnalyzer().security_risk(
+        _event("notes.md", "this is (not python and that is fine\n")
+    )
+    assert risk != SecurityRisk.HIGH
