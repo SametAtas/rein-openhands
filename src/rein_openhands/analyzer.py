@@ -48,13 +48,14 @@ class ReinSecurityAnalyzer(SecurityAnalyzerBase):
     def security_risk(self, action: ActionEvent) -> SecurityRisk:
         content, path = _extract(action)
         findings = code_domain(content, path)
-        # Fail closed: if a Python file did not parse, rein's AST-based security
-        # checks never ran, so the code is unanalyzed, not safe. Treat an
-        # unparseable .py as HIGH rather than letting it downgrade to the
-        # syntax-error's own MEDIUM. Scoped to .py so a non-Python command or a
-        # text file is left to its normal verdict and to the shell analyzer.
-        if path is not None and path.endswith(".py") and any(
-            f.rule_id == "lint.syntax-error" for f in findings
-        ):
-            return SecurityRisk.HIGH
+        if any(f.rule_id == "lint.syntax-error" for f in findings):
+            # A .py that will not parse is real code rein could not analyze, so
+            # fail closed (HIGH): unanalyzed is not safe. For anything else (no
+            # path, or a non-.py path) the parse failure just means the content
+            # is not Python, e.g. a shell command, so the syntax error carries no
+            # security signal. Drop it rather than read it as MEDIUM; the shell
+            # pattern analyzer is what covers commands.
+            if path is not None and path.endswith(".py"):
+                return SecurityRisk.HIGH
+            findings = [f for f in findings if f.rule_id != "lint.syntax-error"]
         return _to_risk(findings)

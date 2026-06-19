@@ -76,4 +76,47 @@ def test_non_python_unparseable_not_forced_high():
     risk = ReinSecurityAnalyzer().security_risk(
         _event("notes.md", "this is (not python and that is fine\n")
     )
-    assert risk != SecurityRisk.HIGH
+    assert risk == SecurityRisk.LOW
+
+
+class _Command(Action):
+    command: str
+
+
+def _command_event(command: str) -> ActionEvent:
+    return ActionEvent(
+        thought=[TextContent(text="running a command")],
+        action=_Command(command=command),
+        tool_name="execute_bash",
+        tool_call_id="call_1",
+        tool_call=MessageToolCall(
+            id="call_1", name="execute_bash", arguments="{}", origin="completion"
+        ),
+        llm_response_id="resp_1",
+    )
+
+
+def test_shell_command_is_low_not_medium():
+    # A command (no path) is not Python; the failed Python parse must not leak as
+    # MEDIUM. rein defers to the shell analyzer here.
+    risk = ReinSecurityAnalyzer().security_risk(_command_event("rm -rf /"))
+    assert risk == SecurityRisk.LOW
+
+
+def test_secret_in_command_is_high():
+    # Secrets are regex-based, so they fire on a command regardless of parsing.
+    risk = ReinSecurityAnalyzer().security_risk(
+        _command_event('export KEY="AKIAIOSFODNN7EXAMPLE"')
+    )
+    assert risk == SecurityRisk.HIGH
+
+
+def test_works_inside_ensemble():
+    from openhands.sdk.security.defense_in_depth import PatternSecurityAnalyzer
+    from openhands.sdk.security.ensemble import EnsembleSecurityAnalyzer
+
+    ensemble = EnsembleSecurityAnalyzer(
+        analyzers=[ReinSecurityAnalyzer(), PatternSecurityAnalyzer()]
+    )
+    risk = ensemble.security_risk(_event("app.py", "import os\nos.system(cmd)\n"))
+    assert risk == SecurityRisk.HIGH
