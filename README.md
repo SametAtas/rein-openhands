@@ -38,11 +38,12 @@ rein judges the content of the action. It returns `HIGH` for, among others:
 
 - unsafe code execution: `os.system`, `subprocess` with `shell=True`, `eval`, `exec`
 - unsafe deserialization and loaders: `pickle.loads`, `yaml.load`, `marshal.loads`
+- unverified TLS context: `ssl._create_unverified_context`
 - hard-coded credentials: AWS, Stripe, GitLab, SendGrid, npm and similar keys
-- weakened security: disabled TLS verification, weak hashes (md5/sha1)
 
-The exact rule set is rein's, so it grows with the engine. Lower-severity
-findings (lint, style, slop) map to `MEDIUM`/`LOW`.
+Some weaker risks map to `MEDIUM`, for example weak hashes (`md5`/`sha1`) and
+`requests(..., verify=False)`. Lint, style, and slop map to `MEDIUM`/`LOW`. The
+exact rule set is rein's, so it grows with the engine.
 
 ## Fail closed on unparseable code
 
@@ -60,12 +61,15 @@ command patterns. Run it together with OpenHands' action and shell-pattern check
 for defense in depth; rein answers "is the code being written dangerous," the
 others answer "is this action allowed to run."
 
-## Configure with .rein.toml
+## Policy as data (roadmap)
 
-The decision rules are data, not a Python class. rein reads a `.rein.toml` at the
-project root for the verdict policy (`fail_at`, per-category thresholds), rule
-disables, and custom regex rules, so a maintainer can declare what is blocked
-without changing this analyzer. See the rein docs for the format.
+The rein engine already externalizes its decision rules as data: a `.rein.toml`
+declares the verdict policy (`fail_at`, per-category thresholds), rule disables,
+and custom regex rules, so a maintainer can declare what is blocked without
+writing code. This analyzer does not yet read that config (it maps rein's finding
+severities to `SecurityRisk` directly); honoring a repo's `.rein.toml` here so the
+policy governs the verdict is the next planned step. See the rein docs for the
+config format.
 
 ## License
 
