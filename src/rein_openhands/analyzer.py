@@ -9,15 +9,25 @@ execution.
 
 from __future__ import annotations
 
+import textwrap
+
 from openhands.sdk.event.llm_convertible import ActionEvent
 from openhands.sdk.security.analyzer import SecurityAnalyzerBase
 from openhands.sdk.security.risk import SecurityRisk
 
 from rein.core.code import code_domain
+from rein.core.diffs import parse_added_lines
 from rein.core.findings import Finding, Severity
 
 # Fields, in priority order, that carry the code or command an action will run.
-_CONTENT_KEYS = ("content", "code", "command", "new_str", "file_text", "text")
+# Covers the OpenHands action shapes: file writes (content/file_text/text),
+# str-replace and Gemini edits (new_str/new_string), bash (command), and the
+# workflow runner (script).
+_CONTENT_KEYS = (
+    "content", "code", "command", "new_str", "new_string", "file_text", "text", "script",
+)
+# Fields that carry a unified diff rather than source (e.g. ApplyPatchAction).
+_PATCH_KEYS = ("patch", "diff")
 # Fields that carry a path, so rein gates the right (e.g. Python) checks.
 _PATH_KEYS = ("path", "file_path", "file", "filename")
 
@@ -27,6 +37,14 @@ def _extract(action: ActionEvent) -> tuple[str, str | None]:
     payload = action.action.model_dump() if action.action else {}
     path = next((str(payload[k]) for k in _PATH_KEYS if payload.get(k)), None)
     parts = [str(payload[k]) for k in _CONTENT_KEYS if payload.get(k)]
+    # A patch is a diff, not source. Pull its added lines and review those,
+    # dedented so an indented hunk still parses as Python instead of being
+    # missed. (Reuses rein's own diff parser.)
+    for key in _PATCH_KEYS:
+        if payload.get(key):
+            added = parse_added_lines(str(payload[key]))
+            if added:
+                parts.append(textwrap.dedent("\n".join(a.text for a in added)))
     # Fall back to the whole payload so a secret anywhere is still scanned.
     content = "\n".join(parts) if parts else str(payload)
     return content, path

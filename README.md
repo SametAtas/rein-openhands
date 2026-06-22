@@ -18,19 +18,20 @@ It pulls in `rein-engine` and `openhands-sdk`.
 
 ## Use
 
+Security analyzers are configured on the conversation, with a confirmation policy:
+
 ```python
+from openhands.sdk import Conversation
+from openhands.sdk.security import ConfirmRisky, SecurityRisk
+
 from rein_openhands import ReinSecurityAnalyzer
 
-agent = Agent(llm=llm, tools=tools, security_analyzer=ReinSecurityAnalyzer())
-```
-
-Or set it on an existing conversation:
-
-```python
+conversation = Conversation(agent=agent, workspace=".")
 conversation.set_security_analyzer(ReinSecurityAnalyzer())
+conversation.set_confirmation_policy(ConfirmRisky(threshold=SecurityRisk.HIGH))
 ```
 
-That is all. See the OpenHands docs for agent and confirmation-policy setup.
+That is all. See the OpenHands docs for agent and conversation setup.
 
 ## What it flags
 

@@ -111,6 +111,71 @@ def test_secret_in_command_is_high():
     assert risk == SecurityRisk.HIGH
 
 
+class _Patch(Action):
+    patch: str
+
+
+class _Edit(Action):
+    new_string: str
+
+
+class _Script(Action):
+    script: str
+
+
+def _action_event(action: Action, tool_name: str) -> ActionEvent:
+    return ActionEvent(
+        thought=[TextContent(text="x")],
+        action=action,
+        tool_name=tool_name,
+        tool_call_id="call_1",
+        tool_call=MessageToolCall(
+            id="call_1", name=tool_name, arguments="{}", origin="completion"
+        ),
+        llm_response_id="resp_1",
+    )
+
+
+_DANGER = "import os\nos.system(cmd)\n"
+
+
+def test_patch_field_is_reviewed_high():
+    # An ApplyPatchAction carries a diff, not source. rein must review the added
+    # lines (else os.system in a patch is missed). Regression for issue #1.
+    diff = "--- a/app.py\n+++ b/app.py\n@@ -1 +1,3 @@\n x = 1\n+import os\n+os.system(cmd)\n"
+    risk = ReinSecurityAnalyzer().security_risk(_action_event(_Patch(patch=diff), "apply_patch"))
+    assert risk == SecurityRisk.HIGH
+
+
+def test_indented_patch_is_reviewed_high():
+    # Added lines inside a function are indented; they must be dedented so they
+    # still parse as Python and the danger is caught.
+    diff = (
+        "--- a/app.py\n+++ b/app.py\n@@ -1,2 +1,4 @@\n"
+        " def run():\n     pass\n+    import os\n+    os.system(cmd)\n"
+    )
+    risk = ReinSecurityAnalyzer().security_risk(_action_event(_Patch(patch=diff), "apply_patch"))
+    assert risk == SecurityRisk.HIGH
+
+
+def test_benign_patch_is_low():
+    diff = "--- a/app.py\n+++ b/app.py\n@@ -1 +1,2 @@\n x = 1\n+y = 2\n"
+    risk = ReinSecurityAnalyzer().security_risk(_action_event(_Patch(patch=diff), "apply_patch"))
+    assert risk == SecurityRisk.LOW
+
+
+def test_new_string_field_is_reviewed_high():
+    # str-replace / Gemini edits put the new source in new_string. Issue #1.
+    risk = ReinSecurityAnalyzer().security_risk(_action_event(_Edit(new_string=_DANGER), "str_replace"))
+    assert risk == SecurityRisk.HIGH
+
+
+def test_script_field_is_reviewed_high():
+    # The workflow runner puts source in script. Issue #1.
+    risk = ReinSecurityAnalyzer().security_risk(_action_event(_Script(script=_DANGER), "run_workflow"))
+    assert risk == SecurityRisk.HIGH
+
+
 def test_works_inside_ensemble():
     from openhands.sdk.security.defense_in_depth import PatternSecurityAnalyzer
     from openhands.sdk.security.ensemble import EnsembleSecurityAnalyzer

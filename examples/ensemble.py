@@ -28,9 +28,10 @@ from rein_openhands import ReinSecurityAnalyzer
 
 
 def build_analyzer() -> EnsembleSecurityAnalyzer:
-    """The defense-in-depth setup. Set this on the agent or conversation:
+    """The defense-in-depth setup. Set it on the conversation, with a policy:
 
-        agent = Agent(llm=llm, tools=tools, security_analyzer=build_analyzer())
+        conversation.set_security_analyzer(build_analyzer())
+        conversation.set_confirmation_policy(ConfirmRisky(threshold=SecurityRisk.HIGH))
     """
     return EnsembleSecurityAnalyzer(
         analyzers=[ReinSecurityAnalyzer(), PatternSecurityAnalyzer()]
